@@ -1,0 +1,415 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ═══════════════════════════════ ENUMS ═══════════════════════════════
+
+enum UserRole {
+  ADMIN
+  EXAMINER
+  INVIGILATOR
+  CANDIDATE
+}
+
+enum ExamMode {
+  ADAPTIVE
+  FIXED
+  RANDOMISED
+}
+
+enum ExamStatus {
+  DRAFT
+  SCHEDULED
+  LIVE
+  CLOSED
+  RESULTS_PUBLISHED
+  CANCELLED
+}
+
+enum RegistrationType {
+  PRE_REGISTERED
+  OPEN
+}
+
+enum QuestionType {
+  MCQ
+  MULTI_SELECT
+  SHORT
+  LONG
+  NUMERIC
+  CODE
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum Provenance {
+  MANUAL
+  BULK
+  AI
+}
+
+enum CalibrationStatus {
+  UNCALIBRATED
+  FIELD_TEST
+  CALIBRATED
+}
+
+enum EnrolmentStatus {
+  ENROLLED
+  WAITLISTED
+  ABSENT
+  CANCELLED
+}
+
+enum SessionStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DISCONNECTED
+  SUBMITTED
+  ABANDONED
+  EXPIRED
+}
+
+enum GraderType {
+  AUTO
+  AI
+  HUMAN
+}
+
+enum EvalStatus {
+  PENDING
+  SUGGESTED
+  APPROVED
+  OVERRIDDEN
+}
+
+enum RiskBucket {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ResultStatus {
+  PROVISIONAL
+  FINAL
+}
+
+enum GrievanceStatus {
+  OPEN
+  UPHELD
+  REJECTED
+}
+
+enum ProctorEventType {
+  TAB_SWITCH
+  WINDOW_BLUR
+  FULLSCREEN_EXIT
+  COPY
+  PASTE
+  RIGHT_CLICK
+  FACE_MISSING
+  MULTIPLE_FACES
+  GAZE_AWAY
+  NETWORK_DROP
+  DEVTOOLS_OPEN
+  SNAPSHOT
+  IDENTITY_VERIFIED
+  CALIBRATION_FAILED
+}
+
+// ═══════════════════════════════ IDENTITY / RBAC ═══════════════════════════════
+
+model Institution {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  settings  Json     @default("{}")
+  users     User[]
+  exams     Exam[]
+  questions Question[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("institutions")
+}
+
+model User {
+  id            String      @id @default(uuid()) @db.Uuid
+  institutionId String      @map("institution_id") @db.Uuid
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  role          UserRole
+  name          String
+  email         String      @unique
+  phone         String?
+  passwordHash  String?     @map("password_hash")
+  accessibility Json        @default("{}")
+  emailVerified Boolean     @default(false) @map("email_verified")
+  permissions   String[]    @default([])
+  enrolments    Enrolment[]
+  sessions      ExamSession[]
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  @@index([institutionId, role])
+  @@map("users")
+}
+
+// ═══════════════════════════════ EXAM AUTHORING ═══════════════════════════════
+
+model Exam {
+  id               String           @id @default(uuid()) @db.Uuid
+  institutionId    String           @map("institution_id") @db.Uuid
+  institution      Institution      @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  mode             ExamMode
+  status           ExamStatus       @default(DRAFT)
+  registrationType RegistrationType @map("registration_type")
+  startAt          DateTime?        @map("start_at")
+  endAt            DateTime?        @map("end_at")
+  publishAt        DateTime?        @map("publish_at")
+  durationSeconds  Int              @map("duration_seconds")
+  seatCap          Int?             @map("seat_cap")
+  proctoringConfig Json             @default("{}") @map("proctoring_config")
+  markingConfig    Json             @default("{}") @map("marking_config")
+  adaptiveConfig   Json             @default("{}") @map("adaptive_config")
+  blueprint        Json             @default("{}")
+  sections         ExamSection[]
+  examQuestions    ExamQuestion[]
+  enrolments       Enrolment[]
+  sessions         ExamSession[]
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  @@index([institutionId, status])
+  @@index([status, publishAt])
+  @@map("exams")
+}
+
+model ExamSection {
+  id              String        @id @default(uuid()) @db.Uuid
+  examId          String        @map("exam_id") @db.Uuid
+  exam            Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  title           String
+  order           Int
+  durationSeconds Int?          @map("duration_seconds")
+  markingConfig   Json          @default("{}") @map("marking_config")
+  examQuestions   ExamQuestion[]
+  @@unique([examId, order])
+  @@map("exam_sections")
+}
+
+// ═══════════════════════════════ QUESTION BANK ═══════════════════════════════
+
+model Question {
+  id                String            @id @default(uuid()) @db.Uuid
+  institutionId     String            @map("institution_id") @db.Uuid
+  institution       Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  rootId            String?           @map("root_id") @db.Uuid
+  version           Int               @default(1)
+  isLatest          Boolean           @default(true) @map("is_latest")
+  type              QuestionType
+  stem              String
+  options           Json?
+  correctKey        Json?             @map("correct_key")
+  marks             Float             @default(1)
+  difficulty        Difficulty        @default(MEDIUM)
+  topicTags         String[]          @default([]) @map("topic_tags")
+  rubric            Json?
+  irtA              Float?            @map("irt_a")
+  irtB              Float?            @map("irt_b")
+  irtC              Float             @default(0) @map("irt_c")
+  calibrationStatus CalibrationStatus @default(UNCALIBRATED) @map("calibration_status")
+  responseCount     Int               @default(0) @map("response_count")
+  exposureCount     Int               @default(0) @map("exposure_count")
+  provenance        Provenance        @default(MANUAL)
+  examQuestions     ExamQuestion[]
+  responses         Response[]
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  @@index([institutionId, isLatest])
+  @@index([difficulty, calibrationStatus])
+  @@map("questions")
+}
+
+model ExamQuestion {
+  examId     String       @map("exam_id") @db.Uuid
+  exam       Exam         @relation(fields: [examId], references: [id], onDelete: Cascade)
+  questionId String       @map("question_id") @db.Uuid
+  question   Question     @relation(fields: [questionId], references: [id])
+  sectionId  String?      @map("section_id") @db.Uuid
+  section    ExamSection? @relation(fields: [sectionId], references: [id])
+  order      Int
+  weight     Float        @default(1)
+  @@id([examId, questionId])
+  @@index([examId, sectionId, order])
+  @@map("exam_questions")
+}
+
+// ═══════════════════════════════ REGISTRATION ═══════════════════════════════
+
+model Enrolment {
+  id               String          @id @default(uuid()) @db.Uuid
+  examId           String          @map("exam_id") @db.Uuid
+  exam             Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  userId           String          @map("user_id") @db.Uuid
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status           EnrolmentStatus @default(ENROLLED)
+  slotAt           DateTime?       @map("slot_at")
+  identityArtifact String?         @map("identity_artifact")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  @@unique([examId, userId])
+  @@index([examId, status])
+  @@map("enrolments")
+}
+
+// ═══════════════════════════════ LIVE SESSION ═══════════════════════════════
+
+model ExamSession {
+  id                String        @id @default(uuid()) @db.Uuid
+  examId            String        @map("exam_id") @db.Uuid
+  exam              Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  userId            String        @map("user_id") @db.Uuid
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status            SessionStatus @default(NOT_STARTED)
+  startedAt         DateTime?     @map("started_at")
+  submittedAt       DateTime?     @map("submitted_at")
+  deadlineAt        DateTime?     @map("deadline_at")
+  extraTimeSeconds  Int           @default(0) @map("extra_time_seconds")
+  activeDeviceToken String?       @map("active_device_token")
+  lastHeartbeatAt   DateTime?     @map("last_heartbeat_at")
+  thetaEstimate     Float         @default(0) @map("theta_estimate")
+  thetaSe           Float         @default(99) @map("theta_se")
+  itemPath          Json          @default("[]") @map("item_path")
+  responses         Response[]
+  proctorEvents     ProctoringEvent[]
+  riskScore         SessionRiskScore?
+  result            Result?
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  @@unique([examId, userId])
+  @@index([status, lastHeartbeatAt])
+  @@map("exam_sessions")
+}
+
+model Response {
+  id           String      @id @default(uuid()) @db.Uuid
+  sessionId    String      @map("session_id") @db.Uuid
+  session      ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId   String      @map("question_id") @db.Uuid
+  question     Question    @relation(fields: [questionId], references: [id])
+  sequenceNo   Int         @map("sequence_no")
+  answer       Json
+  isCorrect    Boolean?    @map("is_correct")
+  awardedMarks Float?      @map("awarded_marks")
+  timeSpentMs  Int?        @map("time_spent_ms")
+  clientNonce  String      @map("client_nonce")
+  answeredAt   DateTime    @default(now()) @map("answered_at")
+  evaluations  Evaluation[]
+  @@unique([sessionId, clientNonce])
+  @@index([sessionId, questionId, sequenceNo])
+  @@map("responses")
+}
+
+// ═══════════════════════════════ PROCTORING ═══════════════════════════════
+
+model ProctoringEvent {
+  id          String           @id @default(uuid()) @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  session     ExamSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type        ProctorEventType
+  severity    Float            @default(0)
+  confidence  Float            @default(1)
+  snapshotRef String?          @map("snapshot_ref")
+  payload     Json             @default("{}")
+  occurredAt  DateTime         @map("occurred_at")
+  receivedAt  DateTime         @default(now()) @map("received_at")
+  @@index([sessionId, occurredAt])
+  @@map("proctoring_events")
+}
+
+model SessionRiskScore {
+  sessionId  String      @id @map("session_id") @db.Uuid
+  session    ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  score      Float
+  bucket     RiskBucket
+  breakdown  Json        @default("{}")
+  computedAt DateTime    @default(now()) @map("computed_at")
+  @@map("session_risk_scores")
+}
+
+// ═══════════════════════════════ EVALUATION ═══════════════════════════════
+
+model Evaluation {
+  id         String     @id @default(uuid()) @db.Uuid
+  responseId String     @map("response_id") @db.Uuid
+  response   Response   @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  grader     GraderType
+  awarded    Float
+  maxMarks   Float      @map("max_marks")
+  criteria   Json       @default("[]")
+  confidence Float      @default(1)
+  status     EvalStatus @default(PENDING)
+  graderRef  String?    @map("grader_ref")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  @@index([responseId, status])
+  @@map("evaluations")
+}
+
+model Result {
+  id          String       @id @default(uuid()) @db.Uuid
+  sessionId   String       @unique @map("session_id") @db.Uuid
+  session     ExamSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  totalMarks  Float        @map("total_marks")
+  maxMarks    Float        @map("max_marks")
+  scaledScore Float?       @map("scaled_score")
+  rank        Int?
+  percentile  Float?
+  perSection  Json         @default("{}") @map("per_section")
+  status      ResultStatus @default(PROVISIONAL)
+  publishedAt DateTime?    @map("published_at")
+  grievances  Grievance[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  @@map("results")
+}
+
+model Grievance {
+  id         String          @id @default(uuid()) @db.Uuid
+  resultId   String          @map("result_id") @db.Uuid
+  result     Result          @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  questionId String          @map("question_id") @db.Uuid
+  reason     String
+  status     GrievanceStatus @default(OPEN)
+  reviewerId String?         @map("reviewer_id") @db.Uuid
+  resolution String?
+  createdAt  DateTime        @default(now()) @map("created_at")
+  resolvedAt DateTime?       @map("resolved_at")
+  @@index([status])
+  @@map("grievances")
+}
+
+// ═══════════════════════════════ AUDIT ═══════════════════════════════
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  before     Json?
+  after      Json?
+  ip         String?
+  at         DateTime @default(now())
+  @@index([entityType, entityId])
+  @@index([actorId, at])
+  @@map("audit_logs")
+}
