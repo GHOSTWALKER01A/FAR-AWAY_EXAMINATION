@@ -6,6 +6,7 @@ import type {
   Difficulty,
   QuestionType,
   CalibrationStatus,
+  Paginated,
 } from "@/lib/types";
 
 export interface QuestionListParams {
@@ -26,6 +27,8 @@ export interface CreateQuestionInput {
   difficulty: Difficulty;
   topicTags?: string[];
   rubric?: { criteria: { criterion: string; max: number }[] };
+  irtA?: number;
+  irtB?: number;
 }
 
 export interface BulkPreviewResult {
@@ -44,23 +47,28 @@ export interface AiDraftInput {
 }
 
 export const questionsApi = {
-  list: (params?: QuestionListParams) => get<Question[]>("/questions", params),
-  create: (input: CreateQuestionInput) => post<Question>("/questions", input),
+  list: (params?: QuestionListParams) =>
+    get<Paginated<Question>>("/questions", params),
+
+  get: (id: string) =>
+    get<Question>(`/questions/${id}`),
+
+  create: (input: CreateQuestionInput) =>
+    post<Question>("/questions", input),
+
   update: (id: string, input: Partial<CreateQuestionInput>) =>
     patch<Question>(`/questions/${id}`, input),
 
   bulkPreview: async (file: File) => {
     const form = new FormData();
     form.append("file", file);
-    const res = await api.post("/questions/bulk/preview", form);
-    return res.data as BulkPreviewResult;
+    const res = await api.post<{ data: BulkPreviewResult }>("/questions/bulk/preview", form);
+    return res.data.data ?? (res.data as unknown as BulkPreviewResult);
   },
+
   bulkCommit: (previewId: string) =>
     post<{ committed: number }>("/questions/bulk/commit", { previewId }),
 
   aiDraft: (input: AiDraftInput) =>
-    post<{ drafts: QuestionDraft[]; note: string }>(
-      "/questions/ai-draft",
-      input,
-    ),
+    post<{ drafts: QuestionDraft[]; note: string }>("/questions/ai-draft", input),
 };

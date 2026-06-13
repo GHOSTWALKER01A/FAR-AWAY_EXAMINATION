@@ -1,15 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common'
 import { GrievanceService } from './grievance.service'
-import { AuthGuard } from '../../common/guards/auth.guard'
 import { AuthUser, Require } from '../../common/decorators/auth.decorator'
+import type { JwtPayload } from '../../common/types/jwt-payload'
 
 @Controller()
-@UseGuards(AuthGuard)
 export class GrievanceController {
   constructor(private service: GrievanceService) {}
 
   @Post('results/:id/grievance')
-  raise(@AuthUser() user: any, @Param('id') resultId: string, @Body() body: any) {
+  raise(@AuthUser() user: JwtPayload, @Param('id') resultId: string, @Body() body: any) {
     return this.service.raise(user, resultId, body)
   }
 
@@ -21,7 +20,7 @@ export class GrievanceController {
 
   @Post('grievances/:id/resolve')
   @Require('grievance.review')
-  resolve(@AuthUser() actor: any, @Param('id') id: string, @Body() body: any) {
+  resolve(@AuthUser() actor: JwtPayload, @Param('id') id: string, @Body() body: any) {
     return this.service.resolve(actor, id, body)
   }
 }

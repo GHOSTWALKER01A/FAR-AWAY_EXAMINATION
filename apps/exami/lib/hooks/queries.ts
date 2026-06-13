@@ -5,7 +5,7 @@ import {
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query";
-import { examsApi, type ExamListParams, type CreateExamInput } from "@/lib/api/exams";
+import { examsApi, examQuestionsApi, type ExamListParams, type CreateExamInput, type AttachQuestionInput } from "@/lib/api/exams";
 import {
   questionsApi,
   type QuestionListParams,
@@ -23,9 +23,20 @@ const errMsg = (e: unknown) =>
   (e as ApiError)?.message || "Something went wrong";
 
 /* ----------------------------- Exams ----------------------------- */
+// Returns the unwrapped items array so components can do data.map() directly.
+// Use useExamsPaginated() if you need total/page metadata.
 export const useExams = (params?: ExamListParams) =>
   useQuery({
     queryKey: ["exams", params],
+    queryFn: async () => {
+      const res = await examsApi.list(params);
+      return res.items;
+    },
+  });
+
+export const useExamsPaginated = (params?: ExamListParams) =>
+  useQuery({
+    queryKey: ["exams-paginated", params],
     queryFn: () => examsApi.list(params),
   });
 
@@ -90,7 +101,10 @@ export const useCloseExam = (id: string) => {
 export const useQuestions = (params?: QuestionListParams) =>
   useQuery({
     queryKey: ["questions", params],
-    queryFn: () => questionsApi.list(params),
+    queryFn: async () => {
+      const res = await questionsApi.list(params);
+      return res.items;
+    },
   });
 
 export const useCreateQuestion = () => {
@@ -241,3 +255,35 @@ export const useLiveSessions = (examId?: string, enabled = true) =>
     enabled: !!examId && enabled,
     refetchInterval: enabled ? false : 5000,
   });
+
+/* ----------------------- Exam Questions -------------------------- */
+export const useExamQuestions = (examId?: string) =>
+  useQuery({
+    queryKey: ["exam-questions", examId],
+    queryFn: () => examQuestionsApi.list(examId!),
+    enabled: !!examId,
+  });
+
+export const useAttachQuestion = (examId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AttachQuestionInput) => examQuestionsApi.attach(examId, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["exam-questions", examId] });
+      toast.success("Question added to exam");
+    },
+    onError: (e) => toast.error("Attach failed", errMsg(e)),
+  });
+};
+
+export const useDetachQuestion = (examId: string) => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (questionId: string) => examQuestionsApi.detach(examId, questionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["exam-questions", examId] });
+      toast.success("Question removed");
+    },
+    onError: (e) => toast.error("Detach failed", errMsg(e)),
+  });
+};

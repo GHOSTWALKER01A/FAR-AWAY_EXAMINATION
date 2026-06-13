@@ -1,22 +1,24 @@
-import { Body, Controller, Delete, Get, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Post, UploadedFile, UseInterceptors } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { EnrolmentService } from './enrolment.service'
-import { AuthGuard } from '../../common/guards/auth.guard'
 import { AuthUser, Require } from '../../common/decorators/auth.decorator'
+import { Public } from '../../common/decorators/public.decorator'
+import type { JwtPayload } from '../../common/types/jwt-payload'
 
 @Controller('exams/:examId')
-@UseGuards(AuthGuard)
 export class EnrolmentController {
   constructor(private service: EnrolmentService) {}
 
   @Post('roster')
   @Require('roster.manage')
   @UseInterceptors(FileInterceptor('file'))
-  importRoster(@AuthUser() user: any, @Param('examId') examId: string, @UploadedFile() file: Express.Multer.File) {
+  importRoster(@AuthUser() user: JwtPayload, @Param('examId') examId: string, @UploadedFile() file: Express.Multer.File) {
     return this.service.importRoster(user, examId, file)
   }
 
+  /** Open self-registration — publicly accessible (no auth required). */
   @Post('register')
+  @Public()
   register(@Param('examId') examId: string, @Body() body: any) {
     return this.service.selfRegister(examId, body)
   }

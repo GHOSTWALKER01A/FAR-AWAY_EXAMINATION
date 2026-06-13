@@ -13,6 +13,7 @@ import { Modal } from "@/components/ui/modal";
 import { RosterPanel } from "@/components/examiner/roster-panel";
 import { GradingPanel } from "@/components/examiner/grading-panel";
 import { ResultsPanel } from "@/components/examiner/results-panel";
+import { ExamQuestionsPanel } from "@/components/examiner/questions-panel";
 import { fmtDate } from "@/lib/utils";
 import { Rocket, Square, Pencil, BookOpen } from "lucide-react";
 
@@ -118,23 +119,11 @@ export default function ExamDetail() {
       {tab === "questions" && (
         <Card>
           <CardContent className="pt-5">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm text-[var(--color-muted)]">
-                Build this exam from your question bank.
-              </p>
-              <Link href="/examiner/questions">
-                <Button variant="outline">
-                  <BookOpen className="h-4 w-4" /> Open question bank
-                </Button>
-              </Link>
-            </div>
-            <p className="text-sm text-[var(--color-muted)]">
-              {exam.mode === "ADAPTIVE"
-                ? "Adaptive exams draw from the calibrated bank automatically — ensure enough CALIBRATED items across difficulties."
-                : exam.mode === "RANDOMISED"
-                  ? "Randomised exams use a blueprint of topics × difficulty. Configure counts in the bank, then attach."
-                  : "Fixed exams use an ordered question set. Select and order items from the bank."}
-            </p>
+            <ExamQuestionsPanel
+              examId={id}
+              mode={exam.mode}
+              status={exam.status}
+            />
           </CardContent>
         </Card>
       )}
@@ -175,7 +164,7 @@ export default function ExamDetail() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between border-b border-[var(--color-border)] py-1.5 last:border-0">
+    <div className="flex justify-between border-b border-border py-1.5 last:border-0">
       <span className="text-[var(--color-muted)]">{label}</span>
       <span className="font-medium">{value}</span>
     </div>

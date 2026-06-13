@@ -43,14 +43,16 @@ export class QuestionsService {
   async list(actor: any, q: any) {
     const where: any = { institutionId: actor.institutionId, isLatest: true }
     if (q.difficulty) where.difficulty = q.difficulty
+    if (q.type) where.type = q.type
     if (q.topic) where.topicTags = { has: q.topic }
     if (q.calibration) where.calibrationStatus = q.calibration
+    if (q.search) where.stem = { contains: q.search, mode: 'insensitive' }
     const page = Number(q.page ?? 1); const limit = Number(q.limit ?? 50)
     const [items, total] = await this.prisma.$transaction([
       this.prisma.question.findMany({ where, skip: (page - 1) * limit, take: limit }),
       this.prisma.question.count({ where }),
     ])
-    return { items, total, __meta: { total, page, limit } }
+    return { items, total, page, limit }
   }
 
   async bulkPreview(actor: any, file: Express.Multer.File) {

@@ -1,5 +1,4 @@
 // Domain types mirroring the NestJS core-api responses.
-// These intentionally stay loose where the backend returns Json blobs.
 
 export type Role = "ADMIN" | "EXAMINER" | "INVIGILATOR" | "CANDIDATE";
 
@@ -9,12 +8,16 @@ export type ExamStatus =
   | "SCHEDULED"
   | "LIVE"
   | "CLOSED"
-  | "RESULTS_PUBLISHED";
-export type RegistrationType = "PRE_REGISTERED" | "SELF_REGISTER" | "OPEN";
+  | "RESULTS_PUBLISHED"
+  | "CANCELLED";
 
+// Must match backend Prisma enum exactly
+export type RegistrationType = "PRE_REGISTERED" | "OPEN";
+
+// Must match backend Prisma enum exactly (MULTI_SELECT, not MULTI)
 export type QuestionType =
   | "MCQ"
-  | "MULTI"
+  | "MULTI_SELECT"
   | "SHORT"
   | "LONG"
   | "NUMERIC"
@@ -30,6 +33,14 @@ export type EnrolmentStatus =
 
 export type RiskBucket = "LOW" | "MEDIUM" | "HIGH";
 
+/** Generic paginated API response (list endpoints wrap their payload in this). */
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface ApiEnvelope<T> {
   success: boolean;
   data: T;
@@ -43,13 +54,14 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+/** Fields decoded from the JWT access token. Must stay in sync with auth.service.ts issueTokens(). */
 export interface JwtClaims {
   sub: string;
   email: string;
+  name: string;
   role: Role;
   institutionId: string;
-  permissions?: string[];
-  name?: string;
+  perms?: string[];
   exp: number;
   iat: number;
 }
@@ -59,11 +71,35 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+  phone?: string;
+  institutionId: string;
+  emailVerified: boolean;
+  permissions: string[];
+  createdAt?: string;
 }
 
 export interface Option {
   id: string;
   text: string;
+}
+
+export interface ExamSection {
+  id: string;
+  examId: string;
+  title: string;
+  order: number;
+  durationSeconds?: number;
+  markingConfig?: Record<string, unknown>;
+  _count?: { examQuestions: number };
+}
+
+export interface ExamQuestion {
+  examId: string;
+  questionId: string;
+  order: number;
+  weight: number;
+  sectionId?: string;
+  question: Question;
 }
 
 export interface Exam {
@@ -85,28 +121,29 @@ export interface Exam {
   blueprint?: Record<string, unknown>;
   sections?: ExamSection[];
   createdAt?: string;
-}
-
-export interface ExamSection {
-  id: string;
-  title: string;
-  durationSeconds?: number;
+  updatedAt?: string;
 }
 
 export interface Question {
   id: string;
   rootId?: string;
   version?: number;
+  isLatest?: boolean;
   type: QuestionType;
   stem: string;
   options?: Option[];
+  correctKey?: { optionIds?: string[]; value?: number; text?: string };
   marks: number;
   difficulty: Difficulty;
   topicTags?: string[];
   rubric?: { criteria: { criterion: string; max: number }[] };
   calibrationStatus?: CalibrationStatus;
-  usageCount?: number;
-  provenance?: "HUMAN" | "AI";
+  responseCount?: number;
+  exposureCount?: number;
+  provenance?: "MANUAL" | "BULK" | "AI";
+  irtA?: number;
+  irtB?: number;
+  irtC?: number;
 }
 
 export interface QuestionDraft {
@@ -123,18 +160,20 @@ export interface QuestionDraft {
 export interface Enrolment {
   id: string;
   status: EnrolmentStatus;
-  user: User;
+  user: Pick<User, "id" | "name" | "email">;
   slotAt?: string;
 }
 
 export interface NextItem {
-  id: string;
-  stem: string;
-  type: QuestionType;
+  id?: string;
+  stem?: string;
+  type?: QuestionType;
   options?: Option[];
-  marks: number;
-  difficulty: Difficulty;
-  done?: boolean;
+  marks?: number;
+  difficulty?: Difficulty;
+  done: boolean;
+  theta?: number;
+  se?: number;
 }
 
 export interface SessionStart {
@@ -171,6 +210,8 @@ export interface EvaluationItem {
   id: string;
   confidence: number;
   awarded: number;
+  maxMarks: number;
+  status: "PENDING" | "SUGGESTED" | "APPROVED" | "OVERRIDDEN";
   criteria: {
     criterion: string;
     awarded: number;
@@ -178,8 +219,8 @@ export interface EvaluationItem {
     justification?: string;
   }[];
   response: {
-    answer: { text?: string };
-    question: { stem: string; marks: number };
+    answer: unknown;
+    question: { stem: string; marks: number; rubric?: unknown };
   };
 }
 
@@ -188,7 +229,7 @@ export interface ScoreRow {
   percentile: number;
   totalMarks: number;
   maxMarks: number;
-  session: { id?: string; user: { name: string } };
+  session: { id: string; user: { name: string; email: string } };
 }
 
 export interface ReportItem {
@@ -204,12 +245,16 @@ export interface ReportItem {
 }
 
 export interface Report {
-  sessionId: string;
-  totalMarks: number;
-  maxMarks: number;
-  rank?: number;
-  percentile?: number;
-  items: ReportItem[];
+  sessionId?: string;
+  result?: { totalMarks: number; maxMarks: number; rank?: number; percentile?: number };
+  responses?: {
+    questionId: string;
+    answer: unknown;
+    isCorrect?: boolean;
+    awardedMarks?: number;
+    question: { stem: string; marks: number; type: string };
+    evaluations?: EvaluationItem[];
+  }[];
 }
 
 export interface Grievance {
@@ -218,6 +263,7 @@ export interface Grievance {
   reason: string;
   questionId: string;
   createdAt: string;
-  user?: { name: string };
-  question?: { stem: string };
+  resolvedAt?: string;
+  resolution?: string;
+  result?: { session?: { user?: { name: string } } };
 }

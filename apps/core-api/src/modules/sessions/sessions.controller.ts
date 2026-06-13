@@ -1,10 +1,8 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 import { SessionsService } from './sessions.service'
-import { AuthGuard } from '../../common/guards/auth.guard'
 import { AuthUser } from '../../common/decorators/auth.decorator'
 
 @Controller()
-@UseGuards(AuthGuard)
 export class SessionsController {
   constructor(private service: SessionsService) {}
 

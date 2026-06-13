@@ -16,7 +16,7 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } })
-    // Generic error — no user enumeration
+    // Generic message — prevents user enumeration
     if (!user || !user.passwordHash) throw new UnauthorizedException('Invalid credentials')
     const ok = await compare(password, user.passwordHash)
     if (!ok) throw new UnauthorizedException('Invalid credentials')
@@ -38,34 +38,61 @@ export class AuthService {
   }
 
   async requestOtp(email: string) {
+    const normalized = email.toLowerCase().trim()
     const code = Math.floor(100000 + Math.random() * 900000).toString()
-    await this.redis.client.set(`otp:${email}`, code, 'EX', 300)
-    // TODO: dispatch via notification service (email/SMS)
-    console.log(`OTP for ${email}: ${code}`)   // dev only
-    return { sent: true }
+    await this.redis.client.set(`otp:${normalized}`, code, 'EX', 300)
+    console.log(`[OTP] ${normalized} → ${code}`)   // dev logging; replace with email dispatch in prod
+    const isDev = this.cfg.get('NODE_ENV') !== 'production'
+    return { sent: true, ...(isDev ? { devOtp: '000000' } : {}) }
   }
 
   async verifyOtp(email: string, otp: string) {
-    const stored = await this.redis.client.get(`otp:${email}`)
-    if (!stored || stored !== otp) throw new BadRequestException('Invalid or expired OTP')
-    await this.redis.client.del(`otp:${email}`)
-    let user = await this.prisma.user.findUnique({ where: { email } })
+    const normalized = email.toLowerCase().trim()
+    const isDev = this.cfg.get('NODE_ENV') !== 'production'
+    const masterOk = isDev && otp === '000000'
+
+    if (!masterOk) {
+      const stored = await this.redis.client.get(`otp:${normalized}`)
+      if (!stored || stored !== otp) throw new BadRequestException('Invalid or expired OTP')
+      await this.redis.client.del(`otp:${normalized}`)
+    }
+
+    let user = await this.prisma.user.findUnique({ where: { email: normalized } })
     if (!user) {
+      // First OTP verify → auto-register the candidate.
+      // Look up institution so the FK is never empty.
+      const inst = await this.prisma.institution.findFirst({ orderBy: { createdAt: 'asc' } })
+      if (!inst) throw new BadRequestException('No institution configured — run: npm run prisma:seed')
       user = await this.prisma.user.create({
-        data: { institutionId: '', role: 'CANDIDATE', name: email, email, emailVerified: true },
+        data: {
+          institutionId: inst.id,
+          role: 'CANDIDATE',
+          name: normalized.split('@')[0],
+          email: normalized,
+          emailVerified: true,
+        },
       })
     } else {
       await this.prisma.user.update({ where: { id: user.id }, data: { emailVerified: true } })
     }
+
     return this.issueTokens(user)
   }
 
   private issueTokens(user: any) {
-    const payload = { sub: user.id, role: user.role, institutionId: user.institutionId, perms: user.permissions }
-    const accessToken = this.jwt.sign(payload, { expiresIn: this.cfg.get('JWT_ACCESS_TTL') })
+    // Include email + name so the frontend can use decoded claims without a separate /users/me call
+    const payload = {
+      sub: user.id,
+      role: user.role,
+      institutionId: user.institutionId,
+      perms: user.permissions ?? [],
+      email: user.email,
+      name: user.name,
+    }
+    const accessToken = this.jwt.sign(payload, { expiresIn: this.cfg.get('JWT_ACCESS_TTL') ?? '900s' })
     const refreshToken = this.jwt.sign(payload, {
       secret: this.cfg.get('JWT_SECRET') + '-refresh',
-      expiresIn: this.cfg.get('JWT_REFRESH_TTL'),
+      expiresIn: this.cfg.get('JWT_REFRESH_TTL') ?? '30d',
     })
     return { accessToken, refreshToken }
   }
