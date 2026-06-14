@@ -12,11 +12,11 @@ export function StudentTopbar() {
   return (
     <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-        <Link href="/exams" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-brand)] text-white">
+        <Link href="/exams" className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-brand)] text-white shadow-sm animate-logo-float">
             <GraduationCap className="h-5 w-5" />
           </div>
-          <span className="font-semibold">ExamFar</span>
+          <span className="text-lg font-bold tracking-tight text-[var(--color-brand)]">Exami</span>
         </Link>
         <div className="flex items-center gap-3">
           <span className="text-sm text-[var(--color-muted)]">

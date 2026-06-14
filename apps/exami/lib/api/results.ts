@@ -1,12 +1,12 @@
 import { get, post } from "./client";
-import type { ScoreRow, Report, Grievance } from "@/lib/types";
+import type { Scoreboard, Report, Grievance } from "@/lib/types";
 
 export const resultsApi = {
   publish: (examId: string) =>
     post<{ published: number }>(`/exams/${examId}/results/publish`, {}),
 
   scoreboard: (examId: string) =>
-    get<ScoreRow[]>(`/exams/${examId}/scoreboard`),
+    get<Scoreboard>(`/exams/${examId}/scoreboard`),
 
   report: (sessionId: string) =>
     get<Report>(`/sessions/${sessionId}/report`),

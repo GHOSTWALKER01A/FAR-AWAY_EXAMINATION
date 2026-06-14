@@ -84,12 +84,12 @@ export default function Grievances() {
                     >
                       {g.status}
                     </Badge>
-                    {g.user && (
-                      <span className="text-sm font-medium">{g.user.name}</span>
+                    {(g as any).user && (
+                      <span className="text-sm font-medium">{(g as any).user.name}</span>
                     )}
                   </div>
-                  {g.question && (
-                    <p className="mb-1 text-sm font-medium">{g.question.stem}</p>
+                  {(g as any).question && (
+                    <p className="mb-1 text-sm font-medium">{(g as any).question.stem}</p>
                   )}
                   <p className="text-sm text-[var(--color-muted)]">{g.reason}</p>
                 </div>

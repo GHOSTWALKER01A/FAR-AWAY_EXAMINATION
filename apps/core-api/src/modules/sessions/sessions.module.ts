@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bull'
 import { SessionsController } from './sessions.controller'
 import { SessionsService } from './sessions.service'
+import { AiModule } from '../../ai/ai.module'
 
 @Module({
-  imports: [BullModule.registerQueue({ name: 'grading' })],
+  imports: [AiModule, BullModule.registerQueue({ name: 'grading' })],
   controllers: [SessionsController],
   providers: [SessionsService],
 })

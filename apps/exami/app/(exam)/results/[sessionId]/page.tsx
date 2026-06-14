@@ -29,21 +29,21 @@ export default function MyResult() {
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <StatCard
                 label="Score"
-                value={`${report.totalMarks}/${report.maxMarks}`}
+                value={`${(report as any).totalMarks}/${(report as any).maxMarks}`}
                 icon={<Trophy className="h-5 w-5" />}
               />
-              {report.rank != null && (
+              {(report as any).rank != null && (
                 <StatCard
                   label="Rank"
-                  value={`#${report.rank}`}
+                  value={`#${(report as any).rank}`}
                   icon={<Trophy className="h-5 w-5" />}
                   tone="info"
                 />
               )}
-              {report.percentile != null && (
+              {(report as any).percentile != null && (
                 <StatCard
                   label="Percentile"
-                  value={report.percentile.toFixed(1)}
+                  value={`${(report as any).percentile.toFixed(1)}%`}
                   icon={<Percent className="h-5 w-5" />}
                   tone="success"
                 />
@@ -51,7 +51,7 @@ export default function MyResult() {
             </div>
 
             <div className="space-y-3">
-              {report.items.map((it) => (
+              {(report as any).items.map((it: any) => (
                 <Card key={it.questionId}>
                   <CardContent className="pt-5">
                     <div className="mb-2 flex items-start justify-between gap-3">
@@ -80,7 +80,7 @@ export default function MyResult() {
                     )}
                     {it.rubricBreakdown && (
                       <div className="mt-2 space-y-1">
-                        {it.rubricBreakdown.map((c, i) => (
+                        {(it as any).rubricBreakdown.map((c: any, i: number) => (
                           <div
                             key={i}
                             className="flex justify-between rounded bg-[var(--color-surface-2)] px-2 py-1 text-xs"

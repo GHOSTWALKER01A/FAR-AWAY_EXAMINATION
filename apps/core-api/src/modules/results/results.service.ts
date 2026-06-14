@@ -28,11 +28,17 @@ export class ResultsService {
   }
 
   async scoreboard(examId: string) {
-    return this.prisma.result.findMany({
+    const exam = await this.prisma.exam.findUnique({
+      where: { id: examId },
+      select: { title: true, status: true, mode: true, durationSeconds: true },
+    })
+    const rows = await this.prisma.result.findMany({
       where: { session: { examId }, status: 'FINAL' },
-      include: { session: { include: { user: { select: { name: true, email: true } } } } },
+      // Only expose name on public endpoint — never email/phone
+      include: { session: { include: { user: { select: { name: true } } } } },
       orderBy: { rank: 'asc' },
     })
+    return { exam, rows }
   }
 
   async report(user: any, sessionId: string) {

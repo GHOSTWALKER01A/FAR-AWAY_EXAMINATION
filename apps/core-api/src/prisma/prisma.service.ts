@@ -1,12 +1,16 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
-import { PrismaClient, Prisma } from '@prisma/client'
+import { PrismaClient, Prisma } from '../../generated/prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name)
 
   constructor() {
+    // Prisma 7: url/directUrl removed from schema.prisma — pass adapter for runtime queries.
+    const adapter = new PrismaPg(process.env.DATABASE_URL!)
     super({
+      adapter,
       log: [
         { emit: 'event', level: 'query' },
         { emit: 'stdout', level: 'warn' },

@@ -18,6 +18,9 @@ const schema = z.object({
   AI_SVC_URL:                z.string().url(),
   INTERNAL_SERVICE_SECRET:   z.string().min(16),
 
+  ANTHROPIC_API_KEY:         z.string().optional(),
+  GEMINI_API_KEY:            z.string().optional(),
+
   EXAM_TIMER_GRACE_SECONDS:  z.coerce.number().default(120),
   SESSION_HEARTBEAT_TIMEOUT: z.coerce.number().default(45),
 

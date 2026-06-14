@@ -40,7 +40,7 @@ export function makeNonce(prefix = "n"): string {
 /** A stable per-browser device token used for single-active-session enforcement. */
 export function getDeviceToken(): string {
   if (typeof window === "undefined") return "ssr";
-  const KEY = "examfar.deviceToken";
+  const KEY = "exami.deviceToken";
   let t = localStorage.getItem(KEY);
   if (!t) {
     t = makeNonce("dev");

@@ -5,6 +5,7 @@ import {
 import { Cron } from '@nestjs/schedule'
 import { InjectQueue } from '@nestjs/bull'
 import { Queue } from 'bull'
+import { Prisma } from '../../../generated/prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { LockService } from '../../redis/lock.service'
@@ -21,6 +22,22 @@ export class SessionsService {
     private ai: AiClient,
     @InjectQueue('grading') private gradingQueue: Queue,
   ) {}
+
+  async myStatus(user: any, examId: string) {
+    const enr = await this.prisma.enrolment.findUnique({
+      where: { examId_userId: { examId, userId: user.sub } },
+      select: { status: true },
+    })
+    const session = await this.prisma.examSession.findUnique({
+      where: { examId_userId: { examId, userId: user.sub } },
+      select: { status: true, submittedAt: true },
+    })
+    return {
+      enrolmentStatus: enr?.status ?? null,
+      sessionStatus: session?.status ?? null,
+      submittedAt: session?.submittedAt ?? null,
+    }
+  }
 
   async precheck(user: any, examId: string, body: any) {
     const exam = await this.prisma.exam.findUnique({ where: { id: examId } })
@@ -47,10 +64,34 @@ export class SessionsService {
     if (exam.startAt && now < exam.startAt) throw new BadRequestException('Exam has not started yet')
     if (exam.endAt && now > exam.endAt) throw new BadRequestException('Exam registration window has closed')
 
-    const enr = await this.prisma.enrolment.findUnique({
+    let enr = await this.prisma.enrolment.findUnique({
       where: { examId_userId: { examId, userId: user.sub } },
     })
-    if (!enr || enr.status === 'CANCELLED') throw new ForbiddenException('Not enrolled in this exam')
+
+    if (exam.registrationType === 'OPEN') {
+      // Auto-enrol on first attempt for open exams; re-activate if previously cancelled
+      if (!enr || enr.status === 'CANCELLED') {
+        const count = await this.prisma.enrolment.count({ where: { examId, status: 'ENROLLED' } })
+        if (exam.seatCap && count >= exam.seatCap) throw new ForbiddenException('Exam is full')
+        enr = await this.prisma.enrolment.upsert({
+          where: { examId_userId: { examId, userId: user.sub } },
+          create: { examId, userId: user.sub, status: 'ENROLLED' },
+          update: { status: 'ENROLLED' },
+        })
+      }
+    } else {
+      if (!enr || enr.status === 'CANCELLED') throw new ForbiddenException('Not enrolled in this exam')
+    }
+
+    if (enr.status === 'WAITLISTED') throw new ForbiddenException('You are on the waitlist for this exam')
+
+    // Block re-entry once a session has reached a terminal state
+    const existingSession = await this.prisma.examSession.findUnique({
+      where: { examId_userId: { examId, userId: user.sub } },
+    })
+    if (existingSession && ['SUBMITTED', 'EXPIRED', 'ABANDONED'].includes(existingSession.status)) {
+      throw new BadRequestException('Exam already completed')
+    }
 
     await this.lock.acquireSession(examId, user.sub, deviceToken)
 
@@ -124,6 +165,83 @@ export class SessionsService {
     return q ? this.sanitize(q) : { done: true }
   }
 
+  // ── Full-paper navigation (FIXED / RANDOMISED) ──────────────────────────────
+  // Returns every question the candidate may navigate, plus restored answers and
+  // review marks so back-navigation and reloads are lossless. ADAPTIVE remains
+  // forward-only (item selection depends on prior responses) and returns adaptive:true.
+  async getPaper(user: any, sessionId: string) {
+    const session = await this.loadOwnedActive(user, sessionId)
+    this.assertWithinTime(session)
+    const exam = await this.prisma.exam.findUnique({ where: { id: session.examId } })
+    const remainingSeconds = Math.max(0, Math.floor((session.deadlineAt!.getTime() - Date.now()) / 1000))
+
+    if (exam!.mode === 'ADAPTIVE') {
+      return { adaptive: true, mode: exam!.mode, questions: [], answers: {}, reviewMarks: [], remainingSeconds }
+    }
+
+    let questions: any[]
+    if (exam!.mode === 'FIXED') {
+      const eqs = await this.prisma.examQuestion.findMany({
+        where: { examId: session.examId },
+        orderBy: { order: 'asc' },
+        include: { question: true },
+      })
+      questions = eqs.map((eq) => this.sanitize(eq.question))
+    } else {
+      // RANDOMISED — draw once and persist the order in itemPath so it's stable
+      let ids = Array.isArray(session.itemPath) ? (session.itemPath as string[]) : []
+      if (!ids.length) {
+        const bp = (exam!.blueprint as any) ?? {}
+        const want = Number(bp.totalItems ?? bp.count ?? bp.itemCount ?? 20)
+        const pool = await this.prisma.question.findMany({
+          where: { institutionId: exam!.institutionId, isLatest: true },
+          take: 500,
+        })
+        const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(want, pool.length))
+        ids = shuffled.map((q) => q.id)
+        await this.prisma.examSession.update({ where: { id: sessionId }, data: { itemPath: ids } })
+      }
+      const qs = await this.prisma.question.findMany({ where: { id: { in: ids } } })
+      const byId = new Map(qs.map((q) => [q.id, q]))
+      questions = ids.map((id) => byId.get(id)).filter(Boolean).map((q) => this.sanitize(q))
+    }
+
+    // Restore latest answer per question (append-only → highest sequenceNo wins)
+    const rows = await this.prisma.$queryRaw<any[]>`
+      SELECT DISTINCT ON (question_id) question_id, answer
+      FROM responses
+      WHERE session_id = ${sessionId}::uuid
+      ORDER BY question_id, sequence_no DESC
+    `
+    const answers: Record<string, any> = {}
+    for (const r of rows) if (r.answer !== null) answers[r.question_id] = r.answer
+
+    const state = await this.redis.getSessionState(sessionId)
+    const reviewMarks: string[] = state.reviewMarks ?? []
+
+    return { adaptive: false, mode: exam!.mode, questions, answers, reviewMarks, remainingSeconds }
+  }
+
+  // Toggle a "mark for review" flag — stored in hot session state (cleared on submit)
+  async setReview(user: any, sessionId: string, dto: any) {
+    await this.loadOwnedActive(user, sessionId)
+    const state = await this.redis.getSessionState(sessionId)
+    const set = new Set<string>(state.reviewMarks ?? [])
+    if (dto.marked) set.add(dto.questionId)
+    else set.delete(dto.questionId)
+    const reviewMarks = [...set]
+    await this.redis.setSessionState(sessionId, { ...state, reviewMarks })
+    return { reviewMarks }
+  }
+
+  private isEmptyAnswer(a: any): boolean {
+    if (a == null) return true
+    if (Array.isArray(a.optionIds)) return a.optionIds.length === 0
+    if (typeof a.text === 'string') return a.text.trim() === ''
+    if ('value' in (a ?? {})) return a.value == null || Number.isNaN(Number(a.value))
+    return false
+  }
+
   async answer(user: any, sessionId: string, dto: any) {
     const session = await this.loadOwnedActive(user, sessionId)
     this.assertWithinTime(session)
@@ -142,13 +260,15 @@ export class SessionsService {
     const seq = await this.redis.nextSequence(sessionId)
     let isCorrect: boolean | null = null; let awardedMarks: number | null = null
 
-    if (['MCQ', 'MULTI_SELECT', 'NUMERIC'].includes(q.type)) {
+    // Blank / cleared answers are stored as null → counted as unanswered (no negative marking)
+    const blank = this.isEmptyAnswer(dto.answer)
+    if (!blank && ['MCQ', 'MULTI_SELECT', 'NUMERIC'].includes(q.type)) {
       const r = this.gradeObjective(q, dto.answer, exam as any)
       isCorrect = r.isCorrect; awardedMarks = r.awarded
     }
 
     await this.prisma.response.create({
-      data: { sessionId, questionId: q.id, sequenceNo: seq, answer: dto.answer, isCorrect, awardedMarks, timeSpentMs: dto.timeSpentMs, clientNonce: dto.clientNonce },
+      data: { sessionId, questionId: q.id, sequenceNo: seq, answer: blank ? Prisma.JsonNull : dto.answer, isCorrect, awardedMarks, timeSpentMs: dto.timeSpentMs, clientNonce: dto.clientNonce },
     })
 
     // Update θ for adaptive mode
@@ -201,8 +321,8 @@ export class SessionsService {
     return { submitted: true }
   }
 
-  // Reaper — mark dead sessions every 20s
-  @Cron('*/20 * * * * *')
+  // Reaper — mark dead sessions every 45s (heartbeat timeout is 45s, so worst case 90s lag)
+  @Cron('*/45 * * * * *')
   async reapStale() {
     const grace = Number(process.env.SESSION_HEARTBEAT_TIMEOUT ?? 45) * 1000
     const cutoff = new Date(Date.now() - grace)

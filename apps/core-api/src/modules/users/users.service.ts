@@ -64,6 +64,33 @@ export class UsersService {
     return { updated: true }
   }
 
+  async invite(caller: JwtPayload, dto: { name: string; email: string; role: string; phone?: string }) {
+    if (caller.role !== 'ADMIN') throw new ForbiddenException('Admin only')
+    const allowed = ['ADMIN', 'EXAMINER', 'INVIGILATOR']
+    if (!allowed.includes(dto.role)) throw new BadRequestException(`Role must be one of: ${allowed.join(', ')}`)
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } })
+    if (existing) throw new BadRequestException('A user with this email already exists')
+    return this.prisma.user.create({
+      data: {
+        institutionId: caller.institutionId,
+        role: dto.role as any,
+        name: dto.name,
+        email: dto.email.toLowerCase(),
+        phone: dto.phone,
+        emailVerified: false,
+      },
+      select: this.safeFields(),
+    })
+  }
+
+  async changeRole(caller: JwtPayload, id: string, role: string) {
+    if (caller.role !== 'ADMIN') throw new ForbiddenException('Admin only')
+    if (caller.sub === id) throw new BadRequestException('Cannot change your own role')
+    const user = await this.prisma.user.findUnique({ where: { id } })
+    if (!user || user.institutionId !== caller.institutionId) throw new NotFoundException('User not found')
+    return this.prisma.user.update({ where: { id }, data: { role: role as any }, select: this.safeFields() })
+  }
+
   async deactivate(caller: JwtPayload, id: string) {
     if (caller.role !== 'ADMIN') throw new ForbiddenException('Admin only')
     if (caller.sub === id) throw new BadRequestException('Cannot deactivate your own account')

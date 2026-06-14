@@ -1,4 +1,4 @@
-# ExamFar Frontend — Next.js Blueprint
+# Exami Frontend — Next.js Blueprint
 ### "Every dashboard, every page, every feature, wired to a real API endpoint"
 
 > A complete, build-ready frontend plan. Each page lists its features and the exact backend
@@ -578,7 +578,7 @@ Route group: `app/(public)/`
 ## PART 3 — RECOMMENDED FOLDER STRUCTURE
 
 ```
-examfar-fe/
+exami-fe/
 ├── app/
 │   ├── (auth)/
 │   │   ├── login/page.tsx
@@ -706,4 +706,4 @@ examfar-fe/
 
 ---
 
-*Pairs with `TEAM_GUIDE.md` (backend file & API reference). Last updated: June 2026 | ExamFar Frontend v1.0*
+*Pairs with `TEAM_GUIDE.md` (backend file & API reference). Last updated: June 2026 | Exami Frontend v1.0*

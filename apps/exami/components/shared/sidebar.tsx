@@ -59,13 +59,13 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)]">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--color-brand)] text-white">
+      <div className="flex items-center gap-3 px-5 py-5 group">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--color-brand)] text-white shadow-sm transition-transform duration-300 group-hover:scale-105 animate-logo-float">
           <GraduationCap className="h-5 w-5" />
         </div>
-        <div>
-          <p className="font-semibold leading-none">ExamFar</p>
-          <p className="text-xs text-[var(--color-muted)]">{role}</p>
+        <div className="flex flex-col">
+          <p className="text-xl font-bold tracking-tight text-[var(--color-brand)]">Exami</p>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted)]">{role}</p>
         </div>
       </div>
 

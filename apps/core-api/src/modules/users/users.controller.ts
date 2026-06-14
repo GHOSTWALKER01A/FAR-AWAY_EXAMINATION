@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common'
 import { UsersService } from './users.service'
 import { AuthUser } from '../../common/decorators/auth.decorator'
 import { Require } from '../../common/decorators/auth.decorator'
@@ -12,6 +12,18 @@ export class UsersController {
   @Require('roster.manage')
   list(@AuthUser() user: JwtPayload, @Query() q: any) {
     return this.service.list(user, q)
+  }
+
+  @Post('invite')
+  @Require('roster.manage')
+  invite(@AuthUser() user: JwtPayload, @Body() body: any) {
+    return this.service.invite(user, body)
+  }
+
+  @Patch(':id/role')
+  @Require('roster.manage')
+  changeRole(@AuthUser() user: JwtPayload, @Param('id') id: string, @Body() body: { role: string }) {
+    return this.service.changeRole(user, id, body.role)
   }
 
   @Get('me')

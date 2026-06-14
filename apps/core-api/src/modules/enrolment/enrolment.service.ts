@@ -36,7 +36,7 @@ export class EnrolmentService {
 
   async selfRegister(examId: string, dto: any) {
     const exam = await this.prisma.exam.findUnique({ where: { id: examId } })
-    if (!exam || exam.status !== 'LIVE') throw new BadRequestException('Registration is closed')
+    if (!exam || !['LIVE', 'SCHEDULED'].includes(exam.status)) throw new BadRequestException('Registration is closed')
     if (exam.registrationType !== 'OPEN') throw new BadRequestException('Pre-registered exam — contact admin')
     const count = await this.prisma.enrolment.count({ where: { examId, status: 'ENROLLED' } })
     const status = exam.seatCap && count >= exam.seatCap ? 'WAITLISTED' : 'ENROLLED'

@@ -76,7 +76,7 @@ export default function SystemCheck() {
     mutationFn: () => sessionsApi.start(id, getDeviceToken()),
     onSuccess: (res) => {
       // Stash the start payload for the runner to pick up.
-      sessionStorage.setItem(`examfar.start.${id}`, JSON.stringify(res));
+      sessionStorage.setItem(`exami.start.${id}`, JSON.stringify(res));
       streamRef.current?.getTracks().forEach((t) => t.stop());
       router.push(`/exam/${id}`);
     },

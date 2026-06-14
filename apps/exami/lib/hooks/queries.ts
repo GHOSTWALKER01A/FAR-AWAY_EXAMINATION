@@ -13,11 +13,14 @@ import {
   type AiDraftInput,
 } from "@/lib/api/questions";
 import { enrolmentApi } from "@/lib/api/enrolment";
+import { sessionsApi } from "@/lib/api/sessions";
+import { usersApi, type UserListParams } from "@/lib/api/users";
 import { evaluationApi } from "@/lib/api/evaluation";
 import { resultsApi, grievanceApi } from "@/lib/api/results";
 import { proctorApi } from "@/lib/api/proctor";
 import { toast } from "@/lib/store/toast";
 import type { ApiError } from "@/lib/api/client";
+import type { Exam, Question } from "@/lib/types";
 
 const errMsg = (e: unknown) =>
   (e as ApiError)?.message || "Something went wrong";
@@ -28,9 +31,9 @@ const errMsg = (e: unknown) =>
 export const useExams = (params?: ExamListParams) =>
   useQuery({
     queryKey: ["exams", params],
-    queryFn: async () => {
-      const res = await examsApi.list(params);
-      return res.items;
+    queryFn: async (): Promise<Exam[]> => {
+      const res = await examsApi.list(params) as any;
+      return Array.isArray(res) ? res : res?.items ?? [];
     },
   });
 
@@ -101,9 +104,9 @@ export const useCloseExam = (id: string) => {
 export const useQuestions = (params?: QuestionListParams) =>
   useQuery({
     queryKey: ["questions", params],
-    queryFn: async () => {
-      const res = await questionsApi.list(params);
-      return res.items;
+    queryFn: async (): Promise<Question[]> => {
+      const res = await questionsApi.list(params) as any;
+      return Array.isArray(res) ? res : res?.items ?? [];
     },
   });
 
@@ -123,6 +126,73 @@ export const useAiDraft = () =>
   useMutation({
     mutationFn: (input: AiDraftInput) => questionsApi.aiDraft(input),
     onError: (e) => toast.error("Generation failed", errMsg(e)),
+  });
+
+/* ─────────────────────────── Users ─────────────────────────────── */
+export const useUsers = (params?: UserListParams) =>
+  useQuery({
+    queryKey: ["users", params],
+    queryFn: () => usersApi.list(params),
+    enabled: true,
+  });
+
+export const useInviteUser = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { name: string; email: string; role: string; phone?: string }) =>
+      usersApi.invite(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User invited", "They can log in with their email.");
+    },
+    onError: (e) => toast.error("Invite failed", errMsg(e)),
+  });
+};
+
+export const useUpdateUser = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; name?: string; phone?: string }) =>
+      usersApi.update(id, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User updated");
+    },
+    onError: (e) => toast.error("Update failed", errMsg(e)),
+  });
+};
+
+export const useChangeRole = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) =>
+      usersApi.changeRole(id, role),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Role updated");
+    },
+    onError: (e) => toast.error("Role change failed", errMsg(e)),
+  });
+};
+
+export const useDeactivateUser = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => usersApi.deactivate(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast.success("User removed");
+    },
+    onError: (e) => toast.error("Remove failed", errMsg(e)),
+  });
+};
+
+/* ----------------------- My Exam Status -------------------------- */
+export const useMyExamStatus = (examId?: string, loggedIn?: boolean) =>
+  useQuery({
+    queryKey: ["my-exam-status", examId],
+    queryFn: () => sessionsApi.myStatus(examId!),
+    enabled: !!examId && !!loggedIn,
   });
 
 /* --------------------------- Enrolment --------------------------- */

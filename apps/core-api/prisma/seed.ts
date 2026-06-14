@@ -1,7 +1,13 @@
-import { PrismaClient, UserRole, QuestionType, Difficulty } from '@prisma/client'
+import { PrismaClient, UserRole, QuestionType, Difficulty } from '../generated/prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { hash } from 'bcryptjs'
+import * as dotenv from 'dotenv'
+import * as path from 'path'
 
-const prisma = new PrismaClient()
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
+
+const adapter = new PrismaPg(process.env.DATABASE_URL!)
+const prisma = new PrismaClient({ adapter })
 
 // Fixed UUID so re-running the seed never creates duplicate rows
 const DEMO_INST_ID = '00000000-0000-0000-0000-000000000001'

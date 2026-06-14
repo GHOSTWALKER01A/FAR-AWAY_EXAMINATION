@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ExamFar — Secure Examinations Platform",
+  title: "Exami — Secure Examinations Platform",
   description:
     "Adaptive, proctored, AI-graded examinations. FAR AWAY 2026 — Problem 2.",
 };

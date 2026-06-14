@@ -18,14 +18,14 @@ export default function MonitorHome() {
       />
       {isLoading ? (
         <LoadingBlock />
-      ) : !data || data.length === 0 ? (
+      ) : !data || (Array.isArray(data) ? data : (data as any).items ?? []).length === 0 ? (
         <EmptyState
           title="Nothing live"
           message="When an exam goes live, it appears here to monitor."
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {data.map((e) => (
+          {(Array.isArray(data) ? data : (data as any).items ?? []).map((e: any) => (
             <Link key={e.id} href={`/monitor/${e.id}`}>
               <Card className="p-5 transition-shadow hover:shadow-md">
                 <div className="mb-3 flex items-start justify-between">

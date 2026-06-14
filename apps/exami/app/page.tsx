@@ -23,7 +23,7 @@ export default function Landing() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="flex flex-col items-center gap-3 text-[var(--color-muted)]">
         <Spinner className="h-7 w-7" />
-        <p className="text-sm">Loading ExamFar…</p>
+        <p className="text-sm">Loading Exami…</p>
       </div>
     </div>
   );

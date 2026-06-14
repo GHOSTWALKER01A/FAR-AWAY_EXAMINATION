@@ -6,6 +6,11 @@ import { AuthUser } from '../../common/decorators/auth.decorator'
 export class SessionsController {
   constructor(private service: SessionsService) {}
 
+  @Get('sessions/:examId/my-status')
+  myStatus(@AuthUser() user: any, @Param('examId') examId: string) {
+    return this.service.myStatus(user, examId)
+  }
+
   @Post('sessions/:examId/precheck')
   precheck(@AuthUser() user: any, @Param('examId') examId: string, @Body() body: any) {
     return this.service.precheck(user, examId, body)
@@ -19,6 +24,16 @@ export class SessionsController {
   @Get('sessions/:id/next-item')
   nextItem(@AuthUser() user: any, @Param('id') id: string) {
     return this.service.nextItem(user, id)
+  }
+
+  @Get('sessions/:id/paper')
+  paper(@AuthUser() user: any, @Param('id') id: string) {
+    return this.service.getPaper(user, id)
+  }
+
+  @Post('sessions/:id/review')
+  review(@AuthUser() user: any, @Param('id') id: string, @Body() body: any) {
+    return this.service.setReview(user, id, body)
   }
 
   @Post('sessions/:id/answer')

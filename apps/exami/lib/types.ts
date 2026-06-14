@@ -182,6 +182,15 @@ export interface SessionStart {
   remainingSeconds: number;
 }
 
+export interface ExamPaper {
+  adaptive: boolean;
+  mode: ExamMode;
+  questions: NextItem[];
+  answers: Record<string, unknown>;
+  reviewMarks: string[];
+  remainingSeconds: number;
+}
+
 export interface ResumeInfo {
   sessionId: string;
   remainingSeconds: number;
@@ -229,7 +238,17 @@ export interface ScoreRow {
   percentile: number;
   totalMarks: number;
   maxMarks: number;
-  session: { id: string; user: { name: string; email: string } };
+  session: { id: string; userId: string; user: { name: string } };
+}
+
+export interface Scoreboard {
+  exam: {
+    title: string;
+    status: string;
+    mode: ExamMode;
+    durationSeconds: number;
+  } | null;
+  rows: ScoreRow[];
 }
 
 export interface ReportItem {

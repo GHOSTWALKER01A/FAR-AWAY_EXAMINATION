@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  ExamFar design tokens — Tailwind v4 CSS-first theme.
+  Exami design tokens — Tailwind v4 CSS-first theme.
   Colors are exposed as utilities (bg-brand, text-muted, etc.) via @theme.
 */
 @theme {
@@ -72,3 +72,25 @@ body {
   50% { opacity: 0.45; }
 }
 .animate-pulse-soft { animation: pulse-soft 1.4s ease-in-out infinite; }
+
+@keyframes text-gradient {
+  to {
+    background-position: 200% center;
+  }
+}
+.animate-brand-text {
+  background: linear-gradient(to right, var(--color-brand), #8b5cf6, var(--color-brand));
+  background-size: 200% auto;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: text-gradient 3s linear infinite;
+}
+
+@keyframes logo-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.05); box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3); }
+}
+.animate-logo-float {
+  animation: logo-float 3s ease-in-out infinite;
+}

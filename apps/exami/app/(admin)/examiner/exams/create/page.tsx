@@ -28,7 +28,7 @@ export default function CreateExam() {
     title: "",
     description: "",
     mode: "ADAPTIVE" as ExamMode,
-    registrationType: "PRE_REGISTERED",
+    registrationType: "PRE_REGISTERED" as "PRE_REGISTERED" | "OPEN",
     durationMin: 60,
     startAt: "",
     endAt: "",
@@ -155,11 +155,10 @@ export default function CreateExam() {
               <Field label="Registration">
                 <Select
                   value={form.registrationType}
-                  onChange={(e) => set("registrationType", e.target.value)}
+                  onChange={(e) => set("registrationType", e.target.value as "PRE_REGISTERED" | "OPEN")}
                 >
                   <option value="PRE_REGISTERED">Pre-registered (roster)</option>
-                  <option value="SELF_REGISTER">Self-register (seat cap)</option>
-                  <option value="OPEN">Open</option>
+                  <option value="OPEN">Open / self-register</option>
                 </Select>
               </Field>
             </>

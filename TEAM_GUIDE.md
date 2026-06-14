@@ -1,4 +1,4 @@
-# ExamFar Backend — Team Guide
+# Exami Backend — Team Guide
 ### "What every file does, every API endpoint, and what the frontend screen should look like"
 
 > Written for teammates who are new to the codebase. No jargon assumed.
@@ -896,4 +896,4 @@ FastAPI docs at `http://localhost:8000/docs` (auto-generated, useful for testing
 
 ---
 
-*Last updated: June 2026 | ExamFar Backend v1.0*
+*Last updated: June 2026 | Exami Backend v1.0*

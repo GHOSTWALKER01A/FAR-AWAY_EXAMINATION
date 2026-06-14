@@ -37,7 +37,8 @@ export class ExamsService {
   async findOne(id: string) {
     const exam = await this.prisma.exam.findUnique({ where: { id }, include: { sections: true } })
     if (!exam) throw new NotFoundException('Exam not found')
-    return exam
+    const enrolledCount = await this.prisma.enrolment.count({ where: { examId: id, status: 'ENROLLED' } })
+    return { ...exam, enrolledCount }
   }
 
   async list(actor: any, q: any) {
@@ -86,12 +87,12 @@ export class ExamsService {
 
   private validateMarkingConfig(cfg: any) {
     if (!cfg) return
-    if (cfg.negativePenalty && cfg.negativePenalty > 1)
-      throw new BadRequestException('Negative penalty cannot exceed question marks (>1 ratio)')
+    if (cfg.negativePenalty && cfg.negativePenalty < 0)
+      throw new BadRequestException('Negative penalty cannot be negative')
   }
 
-  // Scheduled-publish reaper — fires every 30s
-  @Cron('*/30 * * * * *')
+  // Scheduled-publish reaper — fires every 60s (1 minute precision is fine)
+  @Cron('0 * * * * *')
   async activateDueExams() {
     const now = new Date()
     const due = await this.prisma.exam.findMany({

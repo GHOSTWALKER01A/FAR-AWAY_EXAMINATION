@@ -14,7 +14,8 @@ export const proctorApi = {
   /** Returns live sessions for an exam, normalised to LiveSession shape. */
   live: async (examId: string): Promise<LiveSession[]> => {
     const raw = await get<RawLiveSession[]>("/proctor/live", { examId });
-    return (raw ?? []).map((s) => ({
+    const list = Array.isArray(raw) ? raw : (raw as any)?.items ?? (raw as any)?.data ?? [];
+    return list.map((s: RawLiveSession) => ({
       sessionId: s.id,
       userId: s.userId,
       userName: s.user?.name,

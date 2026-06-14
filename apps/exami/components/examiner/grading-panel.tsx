@@ -46,7 +46,7 @@ function GradeRow({ item, examId }: { item: EvaluationItem; examId: string }) {
               Candidate answer
             </p>
             <p className="whitespace-pre-wrap rounded-lg bg-[var(--color-surface-2)] p-3 text-sm">
-              {item.response.answer.text || <span className="italic text-[var(--color-muted)]">No answer</span>}
+              {(item.response.answer as any).text || <span className="italic text-[var(--color-muted)]">No response provided</span>}
             </p>
           </div>
 

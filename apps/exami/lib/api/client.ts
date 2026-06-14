@@ -14,7 +14,7 @@ const API_URL =
  */
 let accessToken: string | null = null;
 
-const REFRESH_KEY = "examfar.refreshToken";
+const REFRESH_KEY = "exami.refreshToken";
 
 export function setTokens(access: string | null, refresh?: string | null) {
   accessToken = access;

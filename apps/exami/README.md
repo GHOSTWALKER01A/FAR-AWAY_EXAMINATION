@@ -1,10 +1,10 @@
-# ExamFar — Web Frontend
+# Exami — Web Frontend
 
-The Next.js 16 frontend for **ExamFar**, the secure / fair / intelligent examinations
+The Next.js 16 frontend for **Exami**, the secure / fair / intelligent examinations
 platform (FAR AWAY 2026 — Problem 2). It consumes the NestJS `core-api` and the
 FastAPI `ai-svc` (indirectly, through the core-api).
 
-Built per [`FRONTEND_GUIDE.md`](../../ExamFar-be/FRONTEND_GUIDE.md): **30 pages across
+Built per [`FRONTEND_GUIDE.md`](../../Exami-be/FRONTEND_GUIDE.md): **30 pages across
 6 dashboards**, every page wired to real API endpoints.
 
 ## Stack
@@ -26,7 +26,7 @@ npm install
 npm run dev      # http://localhost:3001
 ```
 
-The backend (`ExamFar-be`) must be running on `http://localhost:3000`. Configure URLs in
+The backend (`Exami-be`) must be running on `http://localhost:3000`. Configure URLs in
 `.env.local`:
 
 ```bash

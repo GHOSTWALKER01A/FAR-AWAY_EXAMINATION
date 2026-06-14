@@ -28,7 +28,7 @@ export default function NewQuestion() {
   const [criteria, setCriteria] = useState([{ criterion: "", max: 5 }]);
   const [numeric, setNumeric] = useState({ value: 0, tolerance: 0 });
 
-  const isChoice = type === "MCQ" || type === "MULTI";
+  const isChoice = type === "MCQ" || type === "MULTI_SELECT";
   const isSubjective = type === "SHORT" || type === "LONG" || type === "CODE";
 
   const toggleCorrect = (id: string) => {
@@ -74,7 +74,7 @@ export default function NewQuestion() {
               onChange={(e) => setType(e.target.value as QuestionType)}
             >
               <option value="MCQ">MCQ (single correct)</option>
-              <option value="MULTI">Multi-select</option>
+              <option value="MULTI_SELECT">Multi-select</option>
               <option value="SHORT">Short answer</option>
               <option value="LONG">Long answer</option>
               <option value="NUMERIC">Numeric</option>

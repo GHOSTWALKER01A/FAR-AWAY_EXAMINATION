@@ -185,12 +185,13 @@ function QuestionBankModal({
 }) {
   const [search, setSearch] = useState("");
   const { data: questions, isLoading } = useQuestions(
-    open ? { search: search || undefined, limit: 50 } : undefined,
+    open ? { search: search || undefined, limit: 50 } as any : undefined,
   );
   if (!open) return null;
 
-  const available = (questions ?? []).filter(
-    (q) => !alreadyAttached.includes(q.id),
+  const questionsList = Array.isArray(questions) ? questions : (questions as any)?.items ?? [];
+  const available = questionsList.filter(
+    (q: Question) => !alreadyAttached.includes(q.id),
   );
 
   return (
@@ -220,7 +221,7 @@ function QuestionBankModal({
         </p>
       ) : (
         <div className="max-h-105 space-y-2 overflow-y-auto">
-          {available.map((q) => (
+          {available.map((q: Question) => (
             <div
               key={q.id}
               className="flex items-start gap-3 rounded-lg border border-border p-3"

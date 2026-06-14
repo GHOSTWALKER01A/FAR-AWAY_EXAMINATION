@@ -1,11 +1,23 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import Anthropic from '@anthropic-ai/sdk'
 import { PrismaService } from '../../prisma/prisma.service'
 import { RedisService } from '../../redis/redis.service'
 import { AiClient } from '../../ai/ai.client'
 
 @Injectable()
 export class QuestionsService {
-  constructor(private prisma: PrismaService, private redis: RedisService, private ai: AiClient) {}
+  private readonly logger = new Logger(QuestionsService.name)
+  private anthropic: Anthropic
+
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+    private ai: AiClient,
+    private cfg: ConfigService,
+  ) {
+    this.anthropic = new Anthropic({ apiKey: this.cfg.get<string>('ANTHROPIC_API_KEY') ?? '' })
+  }
 
   async create(actor: any, dto: any) {
     if (['SHORT', 'LONG', 'CODE'].includes(dto.type) && !dto.rubric)
@@ -61,7 +73,9 @@ export class QuestionsService {
     rows.forEach((r, i) => {
       if (!r.stem?.trim()) return errors.push({ row: i + 1, error: 'Missing stem' })
       if (!r.type) return errors.push({ row: i + 1, error: 'Missing type' })
-      valid.push({ ...r, institutionId: actor.institutionId, provenance: 'BULK' })
+      const rowData = { ...r, institutionId: actor.institutionId, provenance: 'BULK' }
+      if (rowData.marks) rowData.marks = parseFloat(rowData.marks)
+      valid.push(rowData)
     })
     const previewId = await this.redis.stashPreview(actor.institutionId, valid)
     return { previewId, total: rows.length, valid: valid.length, errors }
@@ -74,11 +88,104 @@ export class QuestionsService {
     return { committed: rows.length }
   }
 
-  async aiDraft(actor: any, dto: any) {
-    const drafts = await this.ai.generateQuestions({
-      topic: dto.topic, count: dto.count ?? 5,
-      difficulty: dto.difficulty ?? 'MEDIUM', type: dto.type ?? 'MCQ', language: dto.language ?? 'English',
-    })
+  async aiDraft(_actor: any, dto: any) {
+    const anthropicKey = this.cfg.get<string>('ANTHROPIC_API_KEY')
+    const geminiKey = this.cfg.get<string>('GEMINI_API_KEY')
+
+    if (!anthropicKey && !geminiKey) {
+      throw new ServiceUnavailableException('No AI API key configured. Set ANTHROPIC_API_KEY or GEMINI_API_KEY in .env')
+    }
+
+    const { topic, count = 5, difficulty = 'MEDIUM', type = 'MCQ', language = 'English' } = dto
+    const needsOptions = type === 'MCQ' || type === 'MULTI_SELECT'
+
+    const optionSchema = needsOptions
+      ? `"options": [{"id":"o1","text":"..."},{"id":"o2","text":"..."},{"id":"o3","text":"..."},{"id":"o4","text":"..."}],
+    "correctKey": {"optionIds":${type === 'MCQ' ? '["o1"]' : '["o1","o3"]'}},`
+      : ''
+
+    const prompt = `Generate exactly ${count} ${difficulty} difficulty ${type} questions about "${topic}" in ${language}.
+
+Respond with ONLY a JSON array, no markdown fences, no explanation:
+[
+  {
+    "stem": "Question text",
+    "type": "${type}",
+    "difficulty": "${difficulty}",
+    "marks": 4,
+    ${optionSchema}
+    "provenance": "AI"
+  }
+]
+
+Rules:
+- MCQ: 4 options, correctKey.optionIds has exactly 1 correct id
+- MULTI_SELECT: 4 options, correctKey.optionIds has 2–3 correct ids
+- SHORT/LONG/CODE: omit options and correctKey entirely
+- Every object must have provenance: "AI"
+- Return exactly ${count} items`
+
+    let text = ''
+
+    // Try Anthropic first if key is present
+    if (anthropicKey) {
+      try {
+        const msg = await this.anthropic.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }],
+        })
+        text = msg.content[0].type === 'text' ? msg.content[0].text.trim() : ''
+        this.logger.log('AI draft via Anthropic')
+      } catch (e: any) {
+        const reason = e?.error?.error?.message ?? e?.message ?? ''
+        this.logger.warn(`Anthropic failed: ${reason} — falling back to Gemini`)
+        // Fall through to Gemini if key exists
+        if (!geminiKey) {
+          throw new ServiceUnavailableException(`AI generation failed: ${reason}`)
+        }
+      }
+    }
+
+    // Use Gemini (free tier) if Anthropic didn't produce output
+    if (!text && geminiKey) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+            }),
+          },
+        )
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          const reason = (err as any)?.error?.message ?? `HTTP ${res.status}`
+          this.logger.error(`Gemini API error: ${reason}`)
+          throw new ServiceUnavailableException(`AI generation failed: ${reason}`)
+        }
+        const body = await res.json() as any
+        text = body?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ''
+        this.logger.log('AI draft via Gemini')
+      } catch (e: any) {
+        if (e instanceof ServiceUnavailableException) throw e
+        throw new ServiceUnavailableException(`Gemini request failed: ${e?.message ?? 'Unknown error'}`)
+      }
+    }
+
+    // Strip markdown fences Gemini sometimes adds
+    const json = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim()
+    let drafts: any[]
+    try {
+      drafts = JSON.parse(json)
+    } catch {
+      this.logger.error(`Failed to parse AI response: ${text.slice(0, 300)}`)
+      throw new ServiceUnavailableException('AI returned malformed JSON — try again')
+    }
+
     return { drafts, note: 'Review and edit before saving. AI provenance will be flagged.' }
   }
 

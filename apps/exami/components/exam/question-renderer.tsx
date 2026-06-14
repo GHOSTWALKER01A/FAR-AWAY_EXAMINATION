@@ -49,10 +49,10 @@ export function QuestionRenderer({
         {item.stem}
       </p>
 
-      {(item.type === "MCQ" || item.type === "MULTI") && (
+      {(item.type === "MCQ" || item.type === "MULTI_SELECT") && (
         <div className="space-y-2.5">
           {item.options?.map((opt) => {
-            const isMulti = item.type === "MULTI";
+            const isMulti = item.type === "MULTI_SELECT";
             const active = selected.includes(opt.id);
             return (
               <button

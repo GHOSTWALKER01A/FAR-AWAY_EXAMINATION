@@ -4,9 +4,15 @@ import type {
   SessionStart,
   ResumeInfo,
   ProctorEvent,
+  ExamPaper,
 } from "@/lib/types";
 
 export const sessionsApi = {
+  myStatus: (examId: string) =>
+    get<{ enrolmentStatus: string | null; sessionStatus: string | null; submittedAt: string | null }>(
+      `/sessions/${examId}/my-status`,
+    ),
+
   precheck: (
     examId: string,
     input: {
@@ -31,6 +37,15 @@ export const sessionsApi = {
 
   nextItem: (sessionId: string) =>
     get<NextItem>(`/sessions/${sessionId}/next-item`),
+
+  paper: (sessionId: string) =>
+    get<ExamPaper>(`/sessions/${sessionId}/paper`),
+
+  review: (sessionId: string, questionId: string, marked: boolean) =>
+    post<{ reviewMarks: string[] }>(`/sessions/${sessionId}/review`, {
+      questionId,
+      marked,
+    }),
 
   answer: (
     sessionId: string,

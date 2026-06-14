@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from .security import verify_service_signature
 from .routers import adaptive, grading, generation, embeddings
 
-app = FastAPI(title="ExamFar AI Intelligence Service", version="1.0.0")
+app = FastAPI(title="Exami AI Intelligence Service", version="1.0.0")
 
 
 @app.get("/health")

@@ -19,10 +19,15 @@ export function ResultsPanel({
   const publish = usePublishResults(examId);
   const published = status === "RESULTS_PUBLISHED";
 
+  const rows = data?.rows ?? [];
+  const scores = rows
+    .map((r) => (r.maxMarks ? (r.totalMarks / r.maxMarks) * 100 : 0))
+    .filter((s) => isFinite(s));
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-[var(--color-muted)]">
+        <p className="text-sm text-muted">
           {published
             ? "Results are public. Scoreboard re-ranks automatically on upheld grievances."
             : "Publish to compute ranks & percentiles for all candidates."}
@@ -36,16 +41,14 @@ export function ResultsPanel({
 
       {isLoading ? (
         <LoadingBlock />
-      ) : !data || data.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           title="No results yet"
           message="Once candidates submit and grading completes, the scoreboard appears here."
         />
       ) : (
         <div className="space-y-6">
-          <ScoreDistribution
-            scores={data.map((r) => (r.totalMarks / r.maxMarks) * 100)}
-          />
+          <ScoreDistribution scores={scores} total={rows.length} />
           <Table>
             <THead>
               <tr>
@@ -57,16 +60,18 @@ export function ResultsPanel({
               </tr>
             </THead>
             <tbody>
-              {data.map((r) => (
-                <TR key={r.rank}>
+              {rows.map((r) => (
+                <TR key={r.session.id}>
                   <TD className="font-semibold">#{r.rank}</TD>
                   <TD>{r.session.user.name}</TD>
-                  <TD>
+                  <TD className="tabular-nums">
                     {r.totalMarks}/{r.maxMarks}
                   </TD>
-                  <TD>{((r.totalMarks / r.maxMarks) * 100).toFixed(1)}%</TD>
-                  <TD className="text-[var(--color-muted)]">
-                    {r.percentile.toFixed(1)}
+                  <TD className="tabular-nums">
+                    {r.maxMarks ? ((r.totalMarks / r.maxMarks) * 100).toFixed(1) : "—"}%
+                  </TD>
+                  <TD className="tabular-nums text-muted">
+                    {r.percentile.toFixed(1)}th
                   </TD>
                 </TR>
               ))}

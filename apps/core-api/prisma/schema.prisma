@@ -1,13 +1,12 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
-  directUrl         = env("DIRECT_URL")
-  extensions        = [pgvector(map: "vector")]
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector"), pg_stat_statements(schema: "extensions"), pgcrypto(schema: "extensions"), uuid_ossp(map: "uuid-ossp", schema: "extensions")]
 }
 
 // ═══════════════════════════════ ENUMS ═══════════════════════════════
