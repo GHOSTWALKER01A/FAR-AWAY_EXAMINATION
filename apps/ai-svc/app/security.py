@@ -5,7 +5,9 @@ import time
 
 from fastapi import Header, HTTPException, Request
 
-SECRET = os.environ.get("INTERNAL_SERVICE_SECRET", "").encode()
+from .config import settings
+
+SECRET = settings.internal_service_secret.encode()
 
 
 async def verify_service_signature(

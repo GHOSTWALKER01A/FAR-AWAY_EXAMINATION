@@ -1,5 +1,7 @@
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Settings:
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")

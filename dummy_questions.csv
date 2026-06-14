@@ -1,6 +1,11 @@
-stem,type,difficulty,marks
-What is the capital of France?,SHORT,EASY,1
-Explain the process of photosynthesis.,LONG,MEDIUM,5
-Write a Python function to reverse a string.,CODE,HARD,10
-What is the boiling point of water in Celsius?,NUMERIC,EASY,1
-Describe the impact of the Industrial Revolution on modern society.,LONG,HARD,10
+stem,type,difficulty,marks,topicTags
+"What is the capital of France?",SHORT,EASY,1,geography
+"Explain the process of photosynthesis.",LONG,MEDIUM,5,biology
+"What is the time complexity of binary search?",SHORT,MEDIUM,2,computer-science
+"Write a function in JavaScript to reverse a string.",CODE,HARD,10,programming
+"Solve for x: 2x + 5 = 15",NUMERIC,EASY,2,math
+"Describe the impact of the Industrial Revolution.",LONG,HARD,10,history
+"Calculate the area of a circle with radius 5.",NUMERIC,MEDIUM,3,math
+"What is the chemical symbol for gold?",SHORT,EASY,1,chemistry
+"Write a SQL query to select all users older than 18.",CODE,MEDIUM,5,database
+"What year did humans first land on the moon?",NUMERIC,EASY,1,history

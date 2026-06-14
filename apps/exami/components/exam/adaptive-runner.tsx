@@ -127,6 +127,7 @@ export function AdaptiveRunner({
             {save === "error" && "Save failed — retrying"}
           </span>
           <Button
+            type="button"
             size="lg"
             disabled={!answer || save === "saving"}
             loading={save === "saving"}

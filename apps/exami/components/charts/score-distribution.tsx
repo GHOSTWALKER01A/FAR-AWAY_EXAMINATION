@@ -7,7 +7,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -73,18 +72,7 @@ export function ScoreDistribution({
                   background: "var(--color-surface)",
                 }}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                {buckets.map((b, i) => (
-                  <Cell
-                    key={i}
-                    fill={
-                      b.count === peak && peak > 0
-                        ? "var(--color-brand)"
-                        : "var(--color-brand-soft)"
-                    }
-                  />
-                ))}
-              </Bar>
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="var(--color-brand)" />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -146,7 +146,11 @@ export function PaperRunner({
         setPaletteOpen(false);
         return;
       }
-      await saveCurrent();
+      try {
+        await saveCurrent();
+      } catch (err) {
+        console.error("Failed to save current answer:", err);
+      }
       const target = questions[idx];
       if (target?.id) setVisited((s) => new Set(s).add(target.id!));
       setCurrent(idx);
@@ -302,7 +306,7 @@ export function PaperRunner({
             >
               <LayoutGrid className="h-4 w-4" /> Palette
             </Button>
-            <Button variant="danger" size="sm" onClick={() => setConfirmSubmit(true)}>
+            <Button type="button" variant="danger" size="sm" onClick={() => setConfirmSubmit(true)}>
               <Send className="h-4 w-4" /> Submit
             </Button>
           </div>
@@ -351,6 +355,7 @@ export function PaperRunner({
           {/* Controls */}
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             <Button
+              type="button"
               variant="outline"
               onClick={() => void goTo(current - 1)}
               disabled={current === 0}
@@ -360,21 +365,22 @@ export function PaperRunner({
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
+                type="button"
                 variant="ghost"
                 onClick={() => void clearCurrent()}
                 disabled={isEmpty(currentAnswer)}
               >
                 <Eraser className="h-4 w-4" /> Clear
               </Button>
-              <Button variant="outline" onClick={() => void markReviewAndNext()}>
+              <Button type="button" variant="outline" onClick={() => void markReviewAndNext()}>
                 <Flag className="h-4 w-4" /> Review &amp; next
               </Button>
               {current < questions.length - 1 ? (
-                <Button onClick={() => void goTo(current + 1)}>
+                <Button type="button" onClick={() => void goTo(current + 1)}>
                   Save &amp; next <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button onClick={() => setConfirmSubmit(true)}>
+                <Button type="button" onClick={() => setConfirmSubmit(true)}>
                   <Send className="h-4 w-4" /> Review &amp; submit
                 </Button>
               )}
